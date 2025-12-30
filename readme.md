@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python)
 ![XGBoost](https://img.shields.io/badge/XGBoost-Regression-orange?style=for-the-badge&logo=xgboost)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![License](https://img.shields.io/badge/License-GPLv3-red?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Win%20%7C%20Linux-lightgrey?style=for-the-badge)
 
 ## 📌 Overview
@@ -72,7 +72,7 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
     * Download the CSV (ensure it includes Weather Data).
 
 2.  **Prepare Data:**
-    * Run the included master script to clean the raw CSV and compress it into hourly averages:
+    * Run the included master scripts to clean the raw CSV and compress it into hourly averages:
     ```bash
     python converter.py
     ```
@@ -82,7 +82,7 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
 
 3.  **Run the App:**
     ```bash
-    python main.py
+    python usinggpusolar.py
     ```
 
 4.  **Configure Simulation:**
@@ -103,8 +103,23 @@ The application implements a **Hybrid Splicing Architecture**:
 
 ---
 
-## 📄 License
+## ⚖️ Licensing & Commercial Use
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project utilizes a **Dual Licensing** model to ensure availability for academic research while supporting commercial viability.
+
+**1. Open Source Use (GPL v3):**
+This software is free for academic research, open-source projects, and personal use under the **GNU General Public License v3 (GPLv3)**.
+* ✅ You can modify and distribute this code.
+* ⚠️ **Condition:** If you distribute an app that uses this code, **your entire app must also be open-source under GPLv3.**
+
+**2. Commercial / Proprietary Use:**
+If you wish to use this software in a proprietary (closed-source) commercial product **without** releasing your source code, you must purchase a **Commercial License**.
+
+Benefits of the Commercial License:
+* Release your software as proprietary/closed-source.
+* Receive priority technical support.
+* Legal indemnification.
+
+📩 **Contact for Commercial Licensing:** [Yashakvish@gmail.com]
 
 ---

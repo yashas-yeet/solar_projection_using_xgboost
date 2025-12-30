@@ -1,3 +1,25 @@
+# ==============================================================================
+#  Hybrid Solar Grid Output Forecaster
+#  Copyright (c) 2025 Yashas Vishwakarma
+#
+#  DUAL LICENSING NOTICE:
+#  This source code is protected by copyright law and is available under two
+#  distinct licensing models. You may choose to use it under:
+#
+#  1. OPEN SOURCE (GPLv3):
+#     Free for academic, personal, and open-source projects.
+#     Condition: If you distribute software using this code, your ENTIRE
+#     project must also be open-source under GPLv3.
+#
+#  2. COMMERCIAL LICENSE:
+#     Required for proprietary (closed-source) commercial products.
+#     Allows you to keep your source code private and provides legal support.
+#
+#  For commercial licensing inquiries, contact: [Your Email Here]
+#  Full terms available in the LICENSE file.
+# ==============================================================================
+
+
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
