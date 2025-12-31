@@ -53,11 +53,20 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
 ### Setup
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/solar-grid-forecaster.git](https://github.com/your-username/solar-grid-forecaster.git)
-    cd solar-grid-forecaster
+    git clone [https://github.com/yashas-yeet/solar_projection_using_xgboost.git](https://github.com/yashas-yeet/solar_projection_using_xgboost.git)
+    cd solar_projection_using_xgboost
     ```
 
-2.  **Install dependencies:**
+2.  **Create a virtual environment (Optional but Recommended):**
+    ```bash
+    python -m venv .venv
+    # Windows:
+    .venv\Scripts\activate
+    # Mac/Linux:
+    source .venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
@@ -84,6 +93,7 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
     ```bash
     python usinggpusolar.py
     ```
+    ## NOTE: OTHER VERSIONS IN THE FILE ARE MADE FOR MY OWN TESTING THE FINAL MODEL IS THE usinggpusolar.py FILE YOU CAN IGNORE THEM.
 
 4.  **Configure Simulation:**
     * **Area:** `37.8` (Site 12 Official Specs)
@@ -120,6 +130,10 @@ Benefits of the Commercial License:
 * Receive priority technical support.
 * Legal indemnification.
 
-📩 **Contact for Commercial Licensing:** [Yashakvish@gmail.com]
+📩 **Contact for Commercial Licensing:** [yashasakvish@gmail.com]
 
 ---
+
+## 🔗 Citation
+
+*to be updated
