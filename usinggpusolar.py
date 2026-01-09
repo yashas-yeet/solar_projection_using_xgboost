@@ -15,7 +15,7 @@
 #     Required for proprietary (closed-source) commercial products.
 #     Allows you to keep your source code private and provides legal support.
 #
-#  For commercial licensing inquiries, contact: [Your Email Here]
+#  For commercial licensing inquiries, contact: [yashasakvish@gmail.com]
 #  Full terms available in the LICENSE file.
 # ==============================================================================
 
