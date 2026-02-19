@@ -399,13 +399,49 @@ class SolarForecastApp(ctk.CTk):
         self.last_plot_type = "compare"
         self.plot_graph(self.df, "Test Results", comparison=True)
 
-    def extrapolate_data(self):
+    def extrapolate_data(self, start_date=None, end_date=None):
         try:
             self.log("Fetching Forecast...")
+            
+            # 1. FIX: Force the graph view to 'Full Data' so custom dates aren't hidden
+            self.view_selector.set("Full Data") 
+            
             lat, lon = self.loc_entries["Lat"].get(), self.loc_entries["Lon"].get()
-            url = "https://api.open-meteo.com/v1/forecast"
-            p = {"latitude": lat, "longitude": lon, "hourly": "temperature_2m,shortwave_radiation", "forecast_days": 3, "past_days": 7}
-            r = requests.get(url, params=p); r.raise_for_status()
+            
+            if start_date and end_date:
+                # 2. FIX: API Limit Warning
+                days_ahead = (end_date - datetime.date.today()).days
+                if days_ahead > 14:
+                    messagebox.showwarning("API Limit", f"Warning: Open-Meteo can only forecast up to 14 days into the future.\nThe API will cut off data after that limit.")
+                
+                # 3. FIX: Smart API Routing (Past vs Future)
+                if end_date < datetime.date.today():
+                    url = "https://archive-api.open-meteo.com/v1/archive"
+                else:
+                    url = "https://api.open-meteo.com/v1/forecast"
+                    
+                p = {
+                    "latitude": lat, 
+                    "longitude": lon, 
+                    "hourly": "temperature_2m,shortwave_radiation", 
+                    "start_date": start_date.strftime('%Y-%m-%d'), 
+                    "end_date": end_date.strftime('%Y-%m-%d'),
+                    "timezone": "auto"
+                }
+            else:
+                url = "https://api.open-meteo.com/v1/forecast"
+                p = {
+                    "latitude": lat, 
+                    "longitude": lon, 
+                    "hourly": "temperature_2m,shortwave_radiation", 
+                    "forecast_days": 3, 
+                    "past_days": 7,
+                    "timezone": "auto"
+                }
+                
+            # This is where it was silently crashing before
+            r = requests.get(url, params=p)
+            r.raise_for_status() 
             d = r.json()['hourly']
             
             future = pd.DataFrame({'Timestamp': pd.to_datetime(d['time']), 'Temperature': d['temperature_2m'], 'GHI_W': d['shortwave_radiation']})
@@ -415,6 +451,7 @@ class SolarForecastApp(ctk.CTk):
             future['Physical_Forecast'] = np.maximum(0, A * future['GHI'] * eta * (1 - alpha * (future['Temperature'] - 25)) * (1 - L))
             
             future['Hour'], future['Month'] = future['Timestamp'].dt.hour, future['Timestamp'].dt.month
+            
             if self.model_stats:
                 X_fut = future[['GHI', 'Temperature', 'Hour', 'Month']].astype(float)
                 future['Stat_Forecast'] = np.maximum(0, self.model_stats.predict(X_fut) * self.scaling_factor)
@@ -422,18 +459,28 @@ class SolarForecastApp(ctk.CTk):
                 future['Stat_Forecast'] = 0.0 
             
             trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
-            # Calculate FUTURE totals only
             now = pd.Timestamp.now()
             future_only = future[future['Timestamp'] > now]
-            future.attrs['total_phys'] = trapz(future_only['Physical_Forecast'], dx=1)
-            future.attrs['total_stat'] = trapz(future_only.get('Stat_Forecast', future_only['Physical_Forecast']), dx=1)
+            
+            if not future_only.empty:
+                future.attrs['total_phys'] = trapz(future_only['Physical_Forecast'], dx=1)
+                future.attrs['total_stat'] = trapz(future_only.get('Stat_Forecast', future_only['Physical_Forecast']), dx=1)
+            else:
+                future.attrs['total_phys'] = 0
+                future.attrs['total_stat'] = 0
             
             self.forecast_df = future
             self.last_plot_type = "forecast"
-            self.plot_graph(future, "Live Forecast", is_forecast=True)
+            self.plot_graph(future, "Custom Forecast Data", is_forecast=True)
+            self.log(f"Success! Loaded {len(future)} hours of data.")
             
-        except Exception as e: self.log(f"Err: {e}")
-
+        # 4. FIX: Show an actual error popup if the API rejects the request
+        except requests.exceptions.HTTPError as err:
+            self.log(f"API ERROR: {err}")
+            messagebox.showerror("Download Error", "The Open-Meteo API rejected the dates.\nPlease check the Log tab. Remember, future forecasts only go up to 14 days.")
+        except Exception as e: 
+            self.log(f"Err: {e}")
+            messagebox.showerror("Error", str(e))
     # --- HELPERS ---
     def import_csv(self):
         f = filedialog.askopenfilename()
@@ -457,7 +504,7 @@ class SolarForecastApp(ctk.CTk):
     def open_prediction_dialog(self): PredictionRangeDialog(self, self.run_long_term_projection)
     
     def run_long_term_projection(self, s, e):
-        self.extrapolate_data() 
+        self.extrapolate_data(start_date=s, end_date=e) 
 
     def update_view_duration(self, val):
         if self.last_plot_type == "fetch": self.plot_graph(self.df, "History", False)
