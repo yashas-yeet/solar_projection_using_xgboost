@@ -83,10 +83,7 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
 2.  **Prepare Data:**
     * Run the included master scripts to clean the raw CSV and compress it into hourly averages:
     ```bash
-    python converter.py
-    ```
-    ```bash
-    python converter2.py
+    data_converter.py
     ```
 
 3.  **Run the App:**
