@@ -90,7 +90,6 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
     ```bash
     python usinggpusolar.py
     ```
-    ## NOTE: OTHER VERSIONS IN THE FILE ARE MADE FOR MY OWN TESTING THE FINAL MODEL IS THE usinggpusolar.py FILE YOU CAN IGNORE THEM.
 
 4.  **Configure Simulation:**
     * **Area:** `37.8` (Site 12 Official Specs)
