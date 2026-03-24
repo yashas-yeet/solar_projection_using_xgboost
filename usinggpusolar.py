@@ -103,6 +103,12 @@ class AnalysisWindow(ctk.CTkToplevel):
         super().__init__(parent)
         self.title("Analysis")
         self.geometry("1100x650")
+        
+        if 'Actual_Output' not in df.columns or 'Physical_Pred' not in df.columns:
+            messagebox.showerror("Error", "Please Train and Test the model before running analysis.")
+            self.destroy()
+            return
+            
         valid = df[(df['Actual_Output'] > 0) & (df['Physical_Pred'] > 0)].copy()
         if valid.empty: return
         
@@ -247,8 +253,7 @@ class SolarForecastApp(ctk.CTk):
         self.graph_frame = ctk.CTkFrame(self.tab_graphs)
         self.graph_frame.grid(row=1, column=0, sticky="nsew")
         
-        # --- NEW: DEDICATED TOOLBAR FRAME ---
-        # This sits below the graph frame to ensure the toolbar is always visible
+        # --- DEDICATED TOOLBAR FRAME ---
         self.toolbar_frame = ctk.CTkFrame(self.tab_graphs, height=40)
         self.toolbar_frame.grid(row=2, column=0, sticky="ew")
         
@@ -403,32 +408,47 @@ class SolarForecastApp(ctk.CTk):
         try:
             self.log("Fetching Forecast...")
             
-            # 1. FIX: Force the graph view to 'Full Data' so custom dates aren't hidden
+            # Force the graph view to 'Full Data' so custom dates aren't hidden
             self.view_selector.set("Full Data") 
             
             lat, lon = self.loc_entries["Lat"].get(), self.loc_entries["Lon"].get()
+            shift_forward = False
             
             if start_date and end_date:
-                # 2. FIX: API Limit Warning
                 days_ahead = (end_date - datetime.date.today()).days
+                query_start = start_date
+                query_end = end_date
+
+                # API Routing & Climatology Synthesis
                 if days_ahead > 14:
-                    messagebox.showwarning("API Limit", f"Warning: Open-Meteo can only forecast up to 14 days into the future.\nThe API will cut off data after that limit.")
-                
-                # 3. FIX: Smart API Routing (Past vs Future)
-                if end_date < datetime.date.today():
+                    self.days_shifted = 0
+                    while query_end >= datetime.date.today() - datetime.timedelta(days=5):
+                        query_start -= datetime.timedelta(days=365)
+                        query_end -= datetime.timedelta(days=365)
+                        self.days_shifted += 365
+                        
+                    self.log(f"Date is {days_ahead} days away. Shifting back {self.days_shifted} days for Climatology.")
                     url = "https://archive-api.open-meteo.com/v1/archive"
+                    shift_forward = True
+                
+                elif end_date < datetime.date.today():
+                    self.log("Fetching Historical Archive Data.")
+                    url = "https://archive-api.open-meteo.com/v1/archive"
+                
                 else:
+                    self.log("Fetching Real-Time Forecast Data.")
                     url = "https://api.open-meteo.com/v1/forecast"
                     
                 p = {
                     "latitude": lat, 
                     "longitude": lon, 
                     "hourly": "temperature_2m,shortwave_radiation", 
-                    "start_date": start_date.strftime('%Y-%m-%d'), 
-                    "end_date": end_date.strftime('%Y-%m-%d'),
+                    "start_date": query_start.strftime('%Y-%m-%d'), 
+                    "end_date": query_end.strftime('%Y-%m-%d'),
                     "timezone": "auto"
                 }
             else:
+                self.log("Fetching Standard Forecast.")
                 url = "https://api.open-meteo.com/v1/forecast"
                 p = {
                     "latitude": lat, 
@@ -439,13 +459,16 @@ class SolarForecastApp(ctk.CTk):
                     "timezone": "auto"
                 }
                 
-            # This is where it was silently crashing before
             r = requests.get(url, params=p)
             r.raise_for_status() 
             d = r.json()['hourly']
             
             future = pd.DataFrame({'Timestamp': pd.to_datetime(d['time']), 'Temperature': d['temperature_2m'], 'GHI_W': d['shortwave_radiation']})
             future['GHI'] = future['GHI_W'] / 1000.0
+            
+            # Shift the synthetic baseline into the actual future requested
+            if shift_forward:
+                future['Timestamp'] = future['Timestamp'] + pd.Timedelta(days=self.days_shifted)
             
             A, eta, alpha, L = [float(self.phys_entries[k].get()) for k in ["Area (m²)", "Eff (η)", "Coeff (α)", "Loss (L)"]]
             future['Physical_Forecast'] = np.maximum(0, A * future['GHI'] * eta * (1 - alpha * (future['Temperature'] - 25)) * (1 - L))
@@ -474,13 +497,13 @@ class SolarForecastApp(ctk.CTk):
             self.plot_graph(future, "Custom Forecast Data", is_forecast=True)
             self.log(f"Success! Loaded {len(future)} hours of data.")
             
-        # 4. FIX: Show an actual error popup if the API rejects the request
         except requests.exceptions.HTTPError as err:
             self.log(f"API ERROR: {err}")
-            messagebox.showerror("Download Error", "The Open-Meteo API rejected the dates.\nPlease check the Log tab. Remember, future forecasts only go up to 14 days.")
+            messagebox.showerror("Download Error", "The Open-Meteo API rejected the dates.\nPlease check the Log tab.")
         except Exception as e: 
             self.log(f"Err: {e}")
             messagebox.showerror("Error", str(e))
+
     # --- HELPERS ---
     def import_csv(self):
         f = filedialog.askopenfilename()
@@ -527,7 +550,6 @@ class SolarForecastApp(ctk.CTk):
         if "3 Days" in selection: n_hours = 72
         elif "7 Days" in selection: n_hours = 168
         
-        # FIX: Backward slicing for Forecast View
         if self.last_plot_type == "forecast":
             now = pd.Timestamp.now()
             start_time = now - pd.Timedelta(hours=n_hours)
@@ -593,7 +615,6 @@ class SolarForecastApp(ctk.CTk):
         canvas.get_tk_widget().pack(fill="both", expand=True)
         canvas.mpl_connect("motion_notify_event", hover)
         
-        # --- TOOLBAR (PLACED IN DEDICATED FRAME) ---
         toolbar = NavigationToolbar2Tk(canvas, self.toolbar_frame)
         toolbar.update()
         toolbar.pack(fill="x")
