@@ -36,6 +36,7 @@ To achieve 97%+ accuracy with noisy satellite data, the pipeline implements thre
 **Satellite Anomaly Filtering:** A 95th-percentile filter that identifies and removes "Satellite Mismatches" (where space sensors see sun but ground sensors see local micro-clouds).
 
 **Temporal Encoding:** Uses DayOfYear and Hour to map the non-linear solar arc of the Southern Hemisphere.
+
 ---
 
 ## 🚀 Hardware Optimization (Edge Computing)
