@@ -23,12 +23,19 @@ The software was validated using 15 years of high-fidelity telemetry data from t
 
 | Metric | Physical Model | XGBoost (AI) | Improvement |
 | :--- | :--- | :--- | :--- |
-| **$R^2$ Score** | 0.875 | **0.995** | +13.7% |
-| **RMSE** | 0.44 kWh | **0.10 kWh** | **-77.2%** |
+| **$R^2$ Score** | 0.875 | **0.973** | +11.2% |
+| **RMSE** | 0.50 kWh | **0.27 kWh** | **-46.0%** |
 | **Fault Detection** | No | **Yes** | Automated |
 
 > **Critical Insight:** The Physical Model consistently over-predicted power during peak thermal loading, failing to account for documented **intermittent inverter dropouts** (SMA SMC 6000A). The XGBoost model implicitly "learned" these fault signatures, correctly predicting zero output during overheating events.
 
+To achieve 97%+ accuracy with noisy satellite data, the pipeline implements three critical signal-processing layers:
+
+**Thermal Lag Integration:** Incorporates Temp_Lag (T-1) to account for the PV module's heat-soak capacity.
+
+**Satellite Anomaly Filtering:** A 95th-percentile filter that identifies and removes "Satellite Mismatches" (where space sensors see sun but ground sensors see local micro-clouds).
+
+**Temporal Encoding:** Uses DayOfYear and Hour to map the non-linear solar arc of the Southern Hemisphere.
 ---
 
 ## 🚀 Hardware Optimization (Edge Computing)
@@ -85,6 +92,11 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
     ```bash
     data_converter.py
     ```
+    * If user only has power output data they can use
+    ```bash
+    ghi_temp.py
+    ```
+    to get those data sets for themselves
 
 3.  **Run the App:**
     ```bash

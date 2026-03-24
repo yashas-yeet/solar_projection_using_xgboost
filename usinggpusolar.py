@@ -303,22 +303,22 @@ class SolarForecastApp(ctk.CTk):
         self.btn_settings = ctk.CTkButton(self.sidebar_frame, text="⚙ Settings", command=self.open_settings, font=FONT_MAIN, fg_color="#7f8c8d")
         self.btn_settings.grid(row=6, column=0, padx=20, pady=10)
 
-        self.btn_load = ctk.CTkButton(self.sidebar_frame, text="1. Fetch History Data", command=self.fetch_historical_data, font=FONT_MAIN, fg_color="#D35400")
+        self.btn_load = ctk.CTkButton(self.sidebar_frame, text="Fetch History Data", command=self.fetch_historical_data, font=FONT_MAIN, fg_color="#D35400")
         self.btn_load.grid(row=7, column=0, padx=20, pady=10)
 
-        self.btn_train = ctk.CTkButton(self.sidebar_frame, text="2a. Train XGBoost", command=self.run_comparison, font=FONT_MAIN, fg_color="transparent", border_width=2)
+        self.btn_train = ctk.CTkButton(self.sidebar_frame, text="Train XGBoost", command=self.run_comparison, font=FONT_MAIN, fg_color="transparent", border_width=2)
         self.btn_train.grid(row=8, column=0, padx=20, pady=10)
 
-        self.btn_test = ctk.CTkButton(self.sidebar_frame, text="2b. Test Model", command=self.test_existing_model, font=FONT_MAIN, fg_color="#8e44ad")
+        self.btn_test = ctk.CTkButton(self.sidebar_frame, text="Test Model", command=self.test_existing_model, font=FONT_MAIN, fg_color="#8e44ad")
         self.btn_test.grid(row=9, column=0, padx=20, pady=10)
 
-        self.btn_forecast = ctk.CTkButton(self.sidebar_frame, text="3. Real Forecast (24h)", command=self.extrapolate_data, font=FONT_MAIN, fg_color="#2CC985", text_color="white")
+        self.btn_forecast = ctk.CTkButton(self.sidebar_frame, text="Real Forecast (24h)", command=self.extrapolate_data, font=FONT_MAIN, fg_color="#2CC985", text_color="white")
         self.btn_forecast.grid(row=10, column=0, padx=20, pady=10)
 
-        self.btn_report = ctk.CTkButton(self.sidebar_frame, text="4. View Report", command=self.open_report_window, font=FONT_MAIN, fg_color="#8e44ad")
+        self.btn_report = ctk.CTkButton(self.sidebar_frame, text="View Report", command=self.open_report_window, font=FONT_MAIN, fg_color="#8e44ad")
         self.btn_report.grid(row=11, column=0, padx=20, pady=10)
 
-        self.btn_predict_custom = ctk.CTkButton(self.sidebar_frame, text="5. Custom Predict", command=self.open_prediction_dialog, font=FONT_MAIN, fg_color="#2980b9")
+        self.btn_predict_custom = ctk.CTkButton(self.sidebar_frame, text="Custom Predict", command=self.open_prediction_dialog, font=FONT_MAIN, fg_color="#2980b9")
         self.btn_predict_custom.grid(row=12, column=0, padx=20, pady=10)
 
         self.btn_analysis = ctk.CTkButton(self.sidebar_frame, text="6. Analyze Accuracy", command=self.open_analysis_window, font=FONT_MAIN, fg_color="#c0392b")
@@ -366,24 +366,54 @@ class SolarForecastApp(ctk.CTk):
 
     def _train(self):
         try:
+            # 1. Physical Baseline
             A, eta, alpha, L = [float(self.phys_entries[k].get()) for k in ["Area (m²)", "Eff (η)", "Coeff (α)", "Loss (L)"]]
             self.df['Physical_Pred'] = np.maximum(0, A * self.df['GHI'] * eta * (1 - alpha * (self.df['Temperature'] - 25)) * (1 - L))
             
-            self.df['Hour'], self.df['Month'] = self.df['Timestamp'].dt.hour, self.df['Timestamp'].dt.month
+            # 2. Advanced Feature Engineering
+            self.df['Hour'] = self.df['Timestamp'].dt.hour
+            self.df['DayOfYear'] = self.df['Timestamp'].dt.dayofyear # Captures sun angle better than 'Month'
             
-            X = self.df[['GHI', 'Temperature', 'Hour', 'Month']].astype(float)
-            y = self.df['Actual_Output'].astype(float)
+            # THERMAL LAG: Panels don't cool down instantly. 
+            # Adding the temperature from 1 hour ago helps the AI understand "Heat Soak."
+            self.df['Temp_Lag'] = self.df['Temperature'].shift(1).fillna(method='bfill')
+            
+            # 3. THE "90% CLEANER": FILTER OUT PLANT OUTAGES
+            # If the API says GHI > 0.5 (Bright Sun) but Power < 2kW, 
+            # the plant was 100% turned off for maintenance. 
+            # Training on these rows kills your accuracy.
+            peak_95 = self.df['Actual_Output'].quantile(0.95)
+            clean_df = self.df[~((self.df['GHI'] > 0.5) & (self.df['Actual_Output'] < (peak_95 * 0.1)))].copy()
+            
+            # 4. RECENCY FOCUS (Last 18 months only)
+            cutoff = clean_df['Timestamp'].max() - pd.Timedelta(days=550)
+            train_df = clean_df[clean_df['Timestamp'] >= cutoff].copy()
 
-            # --- XGBOOST CPU ---
+            # 5. HIGH-PRECISION XGBOOST PARAMS
+            X_features = ['GHI', 'Temperature', 'Temp_Lag', 'Hour', 'DayOfYear']
+            X = train_df[X_features].astype(float)
+            y = train_df['Actual_Output'].astype(float)
+
             if HAS_XGB:
-                self.model_stats = xgb.XGBRegressor(n_estimators=self.n_estimators, n_jobs=-1, tree_method="hist")
-                self.log("Training with XGBoost (Ryzen Multicore)")
+                self.model_stats = xgb.XGBRegressor(
+                    n_estimators=self.n_estimators,
+                    learning_rate=0.03,   # Slower learning = higher precision
+                    max_depth=7,          # Deeper trees to catch complex desert heat patterns
+                    subsample=0.8,        # Prevents overfitting to satellite errors
+                    colsample_bytree=0.8,
+                    n_jobs=-1,
+                    tree_method="hist"
+                )
+                self.log(f"90% Booster Active: Training on {len(train_df):,} filtered hours.")
             else:
-                self.model_stats = RandomForestRegressor(n_estimators=self.n_estimators, n_jobs=-1, random_state=42)
-                self.log("XGBoost not found. Using RandomForest.")
+                self.model_stats = RandomForestRegressor(n_estimators=self.n_estimators, n_jobs=-1)
 
             self.model_stats.fit(X, y)
-            self.df['Stat_Pred'] = np.maximum(0, self.model_stats.predict(X) * self.scaling_factor)
+            
+            # 6. Apply to the whole dataset for visualization
+            X_all = self.df[X_features].astype(float)
+            self.df['Stat_Pred'] = np.maximum(0, self.model_stats.predict(X_all) * self.scaling_factor)
+            
             self.after(0, self._train_done)
         except Exception as e: self.log(f"Train Err: {e}")
 
@@ -511,11 +541,23 @@ class SolarForecastApp(ctk.CTk):
             self.df = pd.read_csv(f); self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
             self.last_plot_type="fetch"; self.plot_graph(self.df, "Imported", False)
     def save_model(self):
-        f = filedialog.asksaveasfilename()
-        if f: joblib.dump(self.model_stats, f)
+        f = filedialog.asksaveasfilename(
+            defaultextension=".joblib", 
+            filetypes=[("AI Model Files", "*.joblib"), ("All Files", "*.*")],
+            title="Save Trained AI Model"
+        )
+        if f: 
+            joblib.dump(self.model_stats, f)
+            self.log(f"Model saved successfully to: {os.path.basename(f)}")
+
     def load_model(self):
-        f = filedialog.askopenfilename()
-        if f: self.model_stats = joblib.load(f)
+        f = filedialog.askopenfilename(
+            filetypes=[("AI Model Files", "*.joblib"), ("All Files", "*.*")],
+            title="Load Trained AI Model"
+        )
+        if f: 
+            self.model_stats = joblib.load(f)
+            self.log(f"Model loaded successfully from: {os.path.basename(f)}")
     def export_data(self):
         f = filedialog.asksaveasfilename(defaultextension=".csv")
         if f and self.df is not None: self.df.to_csv(f)
