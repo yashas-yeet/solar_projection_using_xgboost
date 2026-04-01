@@ -21,29 +21,33 @@ Built and validated using 15 years of real telemetry data from the **BP Solar Si
 
 Standard math equations using satellite data are pretty terrible at this (hitting around 46% accuracy because of timezone mismatches and missing localized data). By feeding advanced satellite features into XGBoost, we pushed that accuracy to **93.3%**—getting incredibly close to the theoretical limit of having an actual physical sensor on the roof.
 
-| Metric | Basic Math (Physics) | XGBoost (AI) | Improvement |
+| Model | Data Source | R² Score | RMSE (kWh) |
 | :--- | :--- | :--- | :--- |
-| **$R^2$ Score** | 0.875 | **0.973** | +11.2% |
-| **RMSE** | 0.50 kWh | **0.27 kWh** | **-46.0%** |
-| **Fault Detection** | Nope | **Automated** | |
+| Basic Math (HWB Equations) | Satellite Data | 0.460 | 1.03 |
+| Basic Math (HWB Equations) | Ground Sensors | 0.812 | 0.94 |
+| **This Project (XGBoost)** | **Satellite Data** | **0.933** | **0.41** |
+| Theoretical Max (XGBoost) | Ground Sensors | 0.973 | 0.24 |
 
 **Why did XGBoost win?** The standard math model kept over-predicting power on super hot days. It didn't know that the physical inverter (SMA SMC 6000A) was occasionally dropping out from overheating. The XGBoost model actually learned this hardware fault signature from the data and correctly predicted zero output during heat spikes.
 
-To get the AI up to 93%+ accuracy using satelite data, I added a few signal-processing tricks under the hood:
-* **Thermal Lag:** Fed the AI the previous hour's temperature so it understands "heat soak."
-* **Anomaly Filtering:** Wrote a script to strip out bad data (e.g., when a satellite sees clear skies but a local micro-cloud is actually covering the panel).
-* **Time Encodings:** Added "Day of Year" and "Hour" features so the model understands the sun's actual physical arc in the sky.
+## How it works
+To get satellite data to perform this well, the code does a few specific things to clean and prep the data before the AI even sees it:
+1. **Grabs better weather data:** It doesn't just look at temperature and standard sunlight (GHI). It pulls Direct Normal Irradiance (DNI), Diffuse Horizontal Irradiance (DHI), and Cloud Cover so the AI knows exactly if the light is direct or scattered.
+2. **Auto-Aligns Timezones:** Satellite data is often in UTC; your inverter logs are in local time. The script runs a cross-correlation algorithm to perfectly align the sun's peak with the inverter's peak automatically.
+3. **Drops Dead Data:** If the sun is blazing but the inverter was turned off for maintenance, the script drops those rows. We don't want the AI learning that "perfect sun = zero power."
+4. **Accounts for Heat Soak:** Panels get hot and lose efficiency. We feed the AI the previous hour's temperature so it understands thermal lag.
 
 ---
 
 ##CPU > GPU 
 
-You'd think a GPU would crush this training, but for tabular telemetry data of this size (< 1 million rows), PCIe transfer latency actually slows things down. A modern CPU is significantly faster here.
+## CPU > GPU for this
+You don't need a massive GPU to run this. In fact, our benchmarks showed that modern CPUs crush GPUs for this specific tabular dataset because of PCIe transfer latency.
 
-| Hardware | Device | Training Time (100 Trees) | Speedup |
-| :--- | :--- | :--- | :--- |
-| **CPU** | **AMD Ryzen 7 7840HS** | **0.42s** | **4.4x** |
-| GPU | NVIDIA RTX 4060 | 1.85s | 1.0x |
+| Hardware | Device | Training Time (100 Trees) |
+| :--- | :--- | :--- |
+| **CPU** | **AMD Ryzen 7 7840HS** | **0.42s** |
+| GPU | NVIDIA RTX 4060 | 1.85s |
 
 ---
 
