@@ -9,15 +9,17 @@
 
 ## 📌 What is this?
 
-Predicting how much power a solar farm will generate is usually done with basic physics math ($Sunlight \times Area \times Efficiency$). But real life is messy. Panels suffer from thermal heat-soak, and inverters occasionally drop out. 
+If you want to accurately predict how much power a solar farm will generate, you usually need expensive, on-site weather stations. Free satellite weather data exists, but it's too coarse—a 10km satellite grid can't see the specific cloud shading your 5-meter solar panel.
 
-This is a desktop app I built to test whether a machine learning model (**XGBoost**) can outperform standard math by learning those hardware quirks. I validated the system using 15 years of telemetry data from the BP Solar Site 12 (5.1kW) array at the Desert Knowledge Australia Solar Centre (DKASC).
+This desktop app fixes that. It's a machine learning pipeline that uses **XGBoost** to act as a "Virtual Sensor." It takes low-res satellite data, engineers some clever features (like thermal lag and scattered light), and trains an AI to predict power output with the accuracy of expensive ground sensors.
+
+Built and validated using 15 years of real telemetry data from the **BP Solar Site 12 (5.1kW)** array at the Desert Knowledge Australia Solar Centre (DKASC).
 
 ---
 
 ## ⚡ The Results
 
-Here is how the two models stacked up against each other:
+Standard math equations using satellite data are pretty terrible at this (hitting around 46% accuracy because of timezone mismatches and missing localized data). By feeding advanced satellite features into XGBoost, we pushed that accuracy to **93.3%**—getting incredibly close to the theoretical limit of having an actual physical sensor on the roof.
 
 | Metric | Basic Math (Physics) | XGBoost (AI) | Improvement |
 | :--- | :--- | :--- | :--- |
@@ -27,14 +29,14 @@ Here is how the two models stacked up against each other:
 
 **Why did XGBoost win?** The standard math model kept over-predicting power on super hot days. It didn't know that the physical inverter (SMA SMC 6000A) was occasionally dropping out from overheating. The XGBoost model actually learned this hardware fault signature from the data and correctly predicted zero output during heat spikes.
 
-To get the AI up to 97%+ accuracy, I added a few signal-processing tricks under the hood:
+To get the AI up to 93%+ accuracy using satelite data, I added a few signal-processing tricks under the hood:
 * **Thermal Lag:** Fed the AI the previous hour's temperature so it understands "heat soak."
 * **Anomaly Filtering:** Wrote a script to strip out bad data (e.g., when a satellite sees clear skies but a local micro-cloud is actually covering the panel).
 * **Time Encodings:** Added "Day of Year" and "Hour" features so the model understands the sun's actual physical arc in the sky.
 
 ---
 
-## 🚀 Fun Fact: CPU > GPU for this
+##CPU > GPU 
 
 You'd think a GPU would crush this training, but for tabular telemetry data of this size (< 1 million rows), PCIe transfer latency actually slows things down. A modern CPU is significantly faster here.
 
