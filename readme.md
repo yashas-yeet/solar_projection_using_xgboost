@@ -36,7 +36,6 @@ To achieve 97%+ accuracy with noisy satellite data, the pipeline implements thre
 **Satellite Anomaly Filtering:** A 95th-percentile filter that identifies and removes "Satellite Mismatches" (where space sensors see sun but ground sensors see local micro-clouds).
 
 **Temporal Encoding:** Uses DayOfYear and Hour to map the non-linear solar arc of the Southern Hemisphere.
-
 ---
 
 ## 🚀 Hardware Optimization (Edge Computing)
@@ -95,13 +94,22 @@ Contrary to the industry standard of using heavy GPU acceleration, our benchmark
     ```
     * If user only has power output data they can use
     ```bash
-    ghi_temp.py
+    satelite_data_fetcher.py
     ```
     to get those data sets for themselves
 
 3.  **Run the App:**
+    * If the user is using ground sensor data from [DKASC Data Download](https://dkasolarcentre.com.au/download), Use.
     ```bash
     python usinggpusolar.py
+    ```
+    * Else if the user is using power output data only paired with
+    ```bash
+    satelite_data_fetcher.py
+    ```
+    Use.
+    ```bash
+    python usinggpusolar2.py
     ```
 
 4.  **Configure Simulation:**

@@ -37,21 +37,21 @@ import sys
 import threading
 import joblib
 
-# --- IMPORT XGBOOST ---
+# IMPORT XGBOOST 
 try:
     import xgboost as xgb
     HAS_XGB = True
 except ImportError:
     HAS_XGB = False
 
-# --- Configuration ---
+# Text Configuration
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 FONT_MAIN = ("Bahnschrift", 14)
 FONT_BOLD = ("Bahnschrift", 14, "bold")
 FONT_HEADER = ("Bahnschrift", 20, "bold")
 
-# --- HELPER: DATE SELECTOR ---
+# DATE SELECTOR 
 class DateSelector(ctk.CTkFrame):
     def __init__(self, parent, default_date=None):
         super().__init__(parent, fg_color="transparent")
@@ -77,7 +77,7 @@ class DateSelector(ctk.CTkFrame):
             return datetime.date(y, m, d)
         except: return None
 
-# --- SETTINGS WINDOW ---
+# SETTINGS WINDOW
 class SettingsWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -97,7 +97,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.lbl.configure(text=f"{int(val)} ESTIMATORS / TREES")
         self.parent.n_estimators = int(val)
 
-# --- ANALYSIS DASHBOARD ---
+# ANALYSIS DASHBOARD 
 class AnalysisWindow(ctk.CTkToplevel):
     def __init__(self, parent, df):
         super().__init__(parent)
@@ -156,7 +156,7 @@ class AnalysisWindow(ctk.CTkToplevel):
         canvas = FigureCanvasTkAgg(fig, master=plot_frame); canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-# --- REPORT WINDOW ---
+# REPORT WINDOW 
 class ReportWindow(ctk.CTkToplevel):
     def __init__(self, parent, p_val, s_val):
         super().__init__(parent)
@@ -187,7 +187,7 @@ class ReportWindow(ctk.CTkToplevel):
         
         ctk.CTkButton(self, text="Close", command=self.destroy, fg_color="#c0392b").pack(pady=20)
 
-# --- PREDICTION RANGE POPUP ---
+# PREDICTION RANGE POPUP
 class PredictionRangeDialog(ctk.CTkToplevel):
     def __init__(self, parent, callback):
         super().__init__(parent)
@@ -201,7 +201,7 @@ class PredictionRangeDialog(ctk.CTkToplevel):
         s, e = self.s.get_date(), self.e.get_date()
         if s and e and e >= s: self.callback(s, e); self.destroy()
 
-# --- MAIN APP ---
+# MAIN APP 
 class SolarForecastApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -253,7 +253,7 @@ class SolarForecastApp(ctk.CTk):
         self.graph_frame = ctk.CTkFrame(self.tab_graphs)
         self.graph_frame.grid(row=1, column=0, sticky="nsew")
         
-        # --- DEDICATED TOOLBAR FRAME ---
+        # DEDICATED TOOLBAR FRAME 
         self.toolbar_frame = ctk.CTkFrame(self.tab_graphs, height=40)
         self.toolbar_frame.grid(row=2, column=0, sticky="ew")
         
@@ -329,7 +329,7 @@ class SolarForecastApp(ctk.CTk):
         ctk.CTkButton(model_frame, text="💾 Save", width=110, command=self.save_model, fg_color="#27ae60").pack(side="left", padx=2)
         ctk.CTkButton(model_frame, text="📂 Load", width=110, command=self.load_model, fg_color="#2980b9").pack(side="right", padx=2)
 
-    # --- CORE LOGIC ---
+    # CORE LOGIC
     def fetch_historical_data(self, s=None, e=None):
         try:
             self.log("Fetching history...")
@@ -346,7 +346,7 @@ class SolarForecastApp(ctk.CTk):
             df = pd.DataFrame({'Timestamp': pd.to_datetime(d['time']), 'Temperature': d['temperature_2m'], 'GHI_W': d['shortwave_radiation'], 'Cloud_Cover': d['cloud_cover'], 'Precipitation': d['precipitation']})
             df['GHI'] = df['GHI_W'] / 1000.0
             
-            # --- TUNED SIMULATION ---
+            # TUNED SIMULATION
             base = 50 * df['GHI'] * 0.14 * (1 - 0.004 * (df['Temperature'] - 25)) * 0.8
             df['Actual_Output'] = np.maximum(0, base + np.random.normal(0, 0.35, len(df)))
             df.loc[df['GHI'] < 0.05, 'Actual_Output'] = 0
@@ -363,7 +363,6 @@ class SolarForecastApp(ctk.CTk):
         if self.df is None: return
         self.btn_train.configure(text="Training...")
         threading.Thread(target=self._train, daemon=True).start()
-
     def _train(self):
         try:
             # 1. Physical Baseline
@@ -416,7 +415,6 @@ class SolarForecastApp(ctk.CTk):
             
             self.after(0, self._train_done)
         except Exception as e: self.log(f"Train Err: {e}")
-
     def _train_done(self):
         self.btn_train.configure(text="2a. Train XGBoost")
         self.last_plot_type = "compare"
@@ -438,7 +436,7 @@ class SolarForecastApp(ctk.CTk):
         try:
             self.log("Fetching Forecast...")
             
-            # Force the graph view to 'Full Data' so custom dates aren't hidden
+            # Force the graph view to Full Data so custom dates arent hidden
             self.view_selector.set("Full Data") 
             
             lat, lon = self.loc_entries["Lat"].get(), self.loc_entries["Lon"].get()
@@ -534,7 +532,6 @@ class SolarForecastApp(ctk.CTk):
             self.log(f"Err: {e}")
             messagebox.showerror("Error", str(e))
 
-    # --- HELPERS ---
     def import_csv(self):
         f = filedialog.askopenfilename()
         if f:
@@ -599,7 +596,7 @@ class SolarForecastApp(ctk.CTk):
         else:
             return data.tail(n_hours).copy()
 
-    # --- PLOTTING ---
+    # PLOTTING TOOLS
     def plot_graph(self, data, title, is_forecast=False, comparison=False):
         for w in self.graph_frame.winfo_children(): w.destroy()
         if hasattr(self, 'toolbar_frame'):
